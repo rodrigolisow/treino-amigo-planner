@@ -1,7 +1,16 @@
 import { useState } from 'react';
-import { Calendar, Dumbbell, BookOpen, Home, Menu, X } from 'lucide-react';
+import { Calendar, Dumbbell, BookOpen, Home, Menu, X, LogOut, User } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -11,6 +20,7 @@ interface AppLayoutProps {
 
 const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
   const navigationItems = [
     { id: 'home', label: 'Início', icon: Home },
@@ -57,15 +67,51 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
               })}
             </nav>
 
-            {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="md:hidden"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </Button>
+            {/* User Menu & Mobile Menu */}
+            <div className="flex items-center space-x-2">
+              {/* User menu - Desktop */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full hidden md:flex">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={user?.user_metadata?.avatar_url} />
+                      <AvatarFallback className="bg-fitness-blue-100 text-fitness-blue-600 font-medium">
+                        {user?.email?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex flex-col space-y-1 p-2">
+                    <p className="text-sm font-medium leading-none">{user?.user_metadata?.display_name || 'Usuário'}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Perfil</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                    onClick={signOut}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Mobile Menu Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="md:hidden"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              >
+                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -94,6 +140,30 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
                   </Button>
                 );
               })}
+              
+              {/* Mobile User Menu */}
+              <div className="pt-3 border-t border-fitness-gray-200 mt-3">
+                <div className="flex items-center space-x-3 px-3 py-2 text-sm">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.user_metadata?.avatar_url} />
+                    <AvatarFallback className="bg-fitness-blue-100 text-fitness-blue-600 text-xs">
+                      {user?.email?.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-fitness-gray-800">{user?.user_metadata?.display_name || 'Usuário'}</span>
+                    <span className="text-xs text-fitness-gray-500">{user?.email}</span>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  onClick={signOut}
+                  className="w-full justify-start space-x-3 py-3 text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span>Sair</span>
+                </Button>
+              </div>
             </div>
           </div>
         )}
