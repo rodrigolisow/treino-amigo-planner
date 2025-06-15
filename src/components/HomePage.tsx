@@ -59,12 +59,12 @@ const HomePage = ({ setActiveTab }: HomePageProps) => {
         </Card>
       </div>
 
-      {/* Today's Workout */}
+      {/* Next Workout */}
       <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2 text-fitness-gray-800">
             <Dumbbell className="w-6 h-6 text-fitness-blue-600" />
-            <span>Treino de Hoje</span>
+            <span>Próximo Treino</span>
             <Badge className="bg-fitness-orange-100 text-fitness-orange-700 hover:bg-fitness-orange-200">
               15:30
             </Badge>
