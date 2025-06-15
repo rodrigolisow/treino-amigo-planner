@@ -10,8 +10,9 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { Dumbbell, Plus, Trash2, Search, Calendar } from 'lucide-react';
+import { Dumbbell, Plus, Trash2, Search, Calendar, Edit, MoreVertical } from 'lucide-react';
 
 interface Exercise {
   id: string;
@@ -47,6 +48,7 @@ const TreinosPage = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isCreating, setIsCreating] = useState(false);
   const [myWorkouts, setMyWorkouts] = useState<any[]>([]);
+  const [editingWorkout, setEditingWorkout] = useState<any>(null);
   
   const [workout, setWorkout] = useState<Workout>({
     nome: '',
@@ -232,6 +234,74 @@ const TreinosPage = () => {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const deleteWorkout = async (workoutId: string) => {
+    try {
+      // Delete exercises first (foreign key constraint)
+      const { error: exercisesError } = await supabase
+        .from('exercicios_treino')
+        .delete()
+        .eq('treino_id', workoutId);
+
+      if (exercisesError) throw exercisesError;
+
+      // Delete workout
+      const { error: workoutError } = await supabase
+        .from('treinos')
+        .delete()
+        .eq('id', workoutId);
+
+      if (workoutError) throw workoutError;
+
+      toast({
+        title: 'Treino excluído!',
+        description: 'O treino foi removido com sucesso.',
+      });
+
+      fetchMyWorkouts();
+    } catch (error) {
+      toast({
+        title: 'Erro ao excluir treino',
+        description: 'Não foi possível excluir o treino. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const editWorkout = (workoutToEdit: any) => {
+    // Extract date and time if available
+    let date = '';
+    let time = '';
+    
+    if (workoutToEdit.data_agendada) {
+      if (workoutToEdit.data_agendada.includes('T')) {
+        const [datePart, timePart] = workoutToEdit.data_agendada.split('T');
+        date = datePart;
+        time = timePart.slice(0, 5); // Remove seconds
+      } else {
+        date = workoutToEdit.data_agendada;
+      }
+    }
+
+    // Map exercises to the format expected by the form
+    const mappedExercises = workoutToEdit.exercicios_treino?.map((ex: any) => ({
+      exercicio_id: ex.exercicio_id,
+      exercicio: ex.exercicios_biblioteca,
+      series: ex.series,
+      repeticoes: ex.repeticoes,
+      peso: ex.peso || '',
+      com_isometria: ex.com_isometria
+    })) || [];
+
+    setWorkout({
+      id: workoutToEdit.id,
+      nome: workoutToEdit.nome,
+      data_agendada: date,
+      exercicios: mappedExercises
+    });
+    setWorkoutTime(time);
+    setEditingWorkout(workoutToEdit);
   };
 
   return (
@@ -442,18 +512,40 @@ const TreinosPage = () => {
                 <Card key={workout.id}>
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                      <span>{workout.nome}</span>
-                      {workout.data_agendada && (
-                        <Badge variant="outline" className="flex items-center space-x-1">
-                          <Calendar className="w-3 h-3" />
-                          <span>
-                            {new Date(workout.data_agendada).toLocaleDateString('pt-BR')}
-                            {workout.data_agendada.includes('T') && 
-                              ` às ${new Date(workout.data_agendada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-                            }
-                          </span>
-                        </Badge>
-                      )}
+                      <div className="flex items-center space-x-2">
+                        <span>{workout.nome}</span>
+                        {workout.data_agendada && (
+                          <Badge variant="outline" className="flex items-center space-x-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>
+                              {new Date(workout.data_agendada).toLocaleDateString('pt-BR')}
+                              {workout.data_agendada.includes('T') && 
+                                ` às ${new Date(workout.data_agendada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                              }
+                            </span>
+                          </Badge>
+                        )}
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => editWorkout(workout)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => deleteWorkout(workout.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
