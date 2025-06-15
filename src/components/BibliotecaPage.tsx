@@ -188,6 +188,10 @@ const BibliotecaPage = () => {
                     src={exercise.imagem_url} 
                     alt={exercise.nome}
                     className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-200"
+                    onError={(e) => {
+                      console.error('Failed to load image:', exercise.imagem_url);
+                      e.currentTarget.style.display = 'none';
+                    }}
                   />
                 ) : (
                   <div className="w-full h-48 bg-gradient-to-br from-fitness-blue-100 to-fitness-orange-100 flex items-center justify-center">
