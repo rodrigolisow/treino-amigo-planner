@@ -1,13 +1,97 @@
+import { useState, useEffect } from 'react';
 import { Calendar, Dumbbell, BookOpen, TrendingUp, Target, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { format, startOfWeek, endOfWeek, addWeeks } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface HomePageProps {
   setActiveTab: (tab: string) => void;
 }
 
 const HomePage = ({ setActiveTab }: HomePageProps) => {
+  const { user } = useAuth();
+  const [weeklyStats, setWeeklyStats] = useState({ completed: 0, total: 0 });
+  const [nextWorkout, setNextWorkout] = useState<{ nome: string; data_agendada: string } | null>(null);
+  const [streak, setStreak] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      fetchWeeklyStats();
+      fetchNextWorkout();
+      fetchStreak();
+    }
+  }, [user]);
+
+  const fetchWeeklyStats = async () => {
+    if (!user) return;
+
+    const nextWeekStart = startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+    const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+
+    const { data, error } = await supabase
+      .from('treinos')
+      .select('concluido')
+      .eq('user_id', user.id)
+      .gte('data_agendada', format(nextWeekStart, 'yyyy-MM-dd'))
+      .lte('data_agendada', format(nextWeekEnd, 'yyyy-MM-dd'));
+
+    if (!error && data) {
+      const completed = data.filter(t => t.concluido).length;
+      setWeeklyStats({ completed, total: data.length });
+    }
+  };
+
+  const fetchNextWorkout = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('treinos')
+      .select('nome, data_agendada')
+      .eq('user_id', user.id)
+      .eq('concluido', false)
+      .gte('data_agendada', format(new Date(), 'yyyy-MM-dd'))
+      .order('data_agendada', { ascending: true })
+      .limit(1);
+
+    if (!error && data && data.length > 0) {
+      setNextWorkout(data[0]);
+    }
+  };
+
+  const fetchStreak = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('treinos')
+      .select('data_conclusao')
+      .eq('user_id', user.id)
+      .eq('concluido', true)
+      .not('data_conclusao', 'is', null)
+      .order('data_conclusao', { ascending: false });
+
+    if (!error && data) {
+      setStreak(data.length);
+    }
+  };
+
+  const getNextWorkoutTime = () => {
+    if (!nextWorkout) return 'Nenhum agendado';
+    
+    const workoutDate = new Date(nextWorkout.data_agendada);
+    const now = new Date();
+    const diffHours = Math.ceil((workoutDate.getTime() - now.getTime()) / (1000 * 60 * 60));
+    
+    if (diffHours < 24) {
+      return `${diffHours}h`;
+    } else {
+      const diffDays = Math.ceil(diffHours / 24);
+      return `${diffDays}d`;
+    }
+  };
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
@@ -26,8 +110,8 @@ const HomePage = ({ setActiveTab }: HomePageProps) => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 text-sm font-medium">Treinos desta semana</p>
-                <p className="text-3xl font-bold">3/4</p>
+                <p className="text-blue-100 text-sm font-medium">Treinos próx. semana</p>
+                <p className="text-3xl font-bold">{weeklyStats.completed}/{weeklyStats.total}</p>
               </div>
               <Target className="w-8 h-8 text-blue-200" />
             </div>
@@ -39,7 +123,7 @@ const HomePage = ({ setActiveTab }: HomePageProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-orange-100 text-sm font-medium">Próximo treino</p>
-                <p className="text-3xl font-bold">2h</p>
+                <p className="text-3xl font-bold">{getNextWorkoutTime()}</p>
               </div>
               <Clock className="w-8 h-8 text-orange-200" />
             </div>
@@ -51,7 +135,7 @@ const HomePage = ({ setActiveTab }: HomePageProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-300 text-sm font-medium">Sequência</p>
-                <p className="text-3xl font-bold">12</p>
+                <p className="text-3xl font-bold">{streak}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-gray-300" />
             </div>
@@ -65,33 +149,29 @@ const HomePage = ({ setActiveTab }: HomePageProps) => {
           <CardTitle className="flex items-center space-x-2 text-fitness-gray-800">
             <Dumbbell className="w-6 h-6 text-fitness-blue-600" />
             <span>Próximo Treino</span>
-            <Badge className="bg-fitness-orange-100 text-fitness-orange-700 hover:bg-fitness-orange-200">
-              Segunda, 15:30
-            </Badge>
+            {nextWorkout && (
+              <Badge className="bg-fitness-orange-100 text-fitness-orange-700 hover:bg-fitness-orange-200">
+                {format(new Date(nextWorkout.data_agendada), "EEEE, dd/MM", { locale: ptBR })}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="bg-gradient-to-r from-fitness-blue-50 to-fitness-orange-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-fitness-gray-800 mb-2">Peito e Tríceps</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="text-fitness-gray-600">Supino</p>
-                <p className="font-semibold text-fitness-gray-800">4x12</p>
-              </div>
-              <div>
-                <p className="text-fitness-gray-600">Inclinado</p>
-                <p className="font-semibold text-fitness-gray-800">3x10</p>
-              </div>
-              <div>
-                <p className="text-fitness-gray-600">Mergulho</p>
-                <p className="font-semibold text-fitness-gray-800">3x15</p>
-              </div>
-              <div>
-                <p className="text-fitness-gray-600">Tríceps Testa</p>
-                <p className="font-semibold text-fitness-gray-800">4x12</p>
-              </div>
+{nextWorkout ? (
+            <div className="bg-gradient-to-r from-fitness-blue-50 to-fitness-orange-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-fitness-gray-800 mb-2">{nextWorkout.nome}</h3>
+              <p className="text-fitness-gray-600 text-sm">
+                Clique em "Ver Treino Completo" para visualizar todos os exercícios
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="bg-gradient-to-r from-fitness-blue-50 to-fitness-orange-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-fitness-gray-800 mb-2">Nenhum treino agendado</h3>
+              <p className="text-fitness-gray-600 text-sm">
+                Acesse a aba "Treinos" para criar e agendar seus treinos
+              </p>
+            </div>
+          )}
           <Button 
             className="w-full bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 hover:from-fitness-blue-700 hover:to-fitness-orange-600 text-white font-semibold py-3"
             onClick={() => setActiveTab('agenda')}
