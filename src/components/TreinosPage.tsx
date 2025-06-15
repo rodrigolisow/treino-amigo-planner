@@ -53,6 +53,7 @@ const TreinosPage = () => {
     data_agendada: '',
     exercicios: []
   });
+  const [workoutTime, setWorkoutTime] = useState('');
 
   const categories = ['Peito', 'Costas', 'Pernas', 'Glúteo', 'Ombros', 'Braços', 'Core'];
 
@@ -173,13 +174,19 @@ const TreinosPage = () => {
     try {
       setIsCreating(true);
 
+      // Combine date and time if both are provided
+      let scheduledDateTime = workout.data_agendada;
+      if (workout.data_agendada && workoutTime) {
+        scheduledDateTime = `${workout.data_agendada}T${workoutTime}:00`;
+      }
+
       // Save workout
       const { data: workoutData, error: workoutError } = await supabase
         .from('treinos')
         .insert({
           user_id: user.id,
           nome: workout.nome,
-          data_agendada: workout.data_agendada || null
+          data_agendada: scheduledDateTime || null
         })
         .select()
         .single();
@@ -213,6 +220,7 @@ const TreinosPage = () => {
         data_agendada: '',
         exercicios: []
       });
+      setWorkoutTime('');
 
       fetchMyWorkouts();
     } catch (error) {
@@ -262,14 +270,25 @@ const TreinosPage = () => {
                   onChange={(e) => setWorkout(prev => ({ ...prev, nome: e.target.value }))}
                 />
               </div>
-              <div>
-                <Label htmlFor="workout-date">Data (opcional)</Label>
-                <Input
-                  id="workout-date"
-                  type="date"
-                  value={workout.data_agendada}
-                  onChange={(e) => setWorkout(prev => ({ ...prev, data_agendada: e.target.value }))}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="workout-date">Data (opcional)</Label>
+                  <Input
+                    id="workout-date"
+                    type="date"
+                    value={workout.data_agendada}
+                    onChange={(e) => setWorkout(prev => ({ ...prev, data_agendada: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="workout-time">Hora (opcional)</Label>
+                  <Input
+                    id="workout-time"
+                    type="time"
+                    value={workoutTime}
+                    onChange={(e) => setWorkoutTime(e.target.value)}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -427,7 +446,12 @@ const TreinosPage = () => {
                       {workout.data_agendada && (
                         <Badge variant="outline" className="flex items-center space-x-1">
                           <Calendar className="w-3 h-3" />
-                          <span>{new Date(workout.data_agendada).toLocaleDateString('pt-BR')}</span>
+                          <span>
+                            {new Date(workout.data_agendada).toLocaleDateString('pt-BR')}
+                            {workout.data_agendada.includes('T') && 
+                              ` às ${new Date(workout.data_agendada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                            }
+                          </span>
                         </Badge>
                       )}
                     </CardTitle>
