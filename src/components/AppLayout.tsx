@@ -24,7 +24,7 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
                 <Dumbbell className="w-5 h-5 text-white" />
               </div>
               <h1 className="text-xl font-poppins font-bold bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-600 bg-clip-text text-transparent">
-                Meu APP
+                Meu Treino
               </h1>
             </div>
           </div>

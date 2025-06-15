@@ -60,7 +60,7 @@ const AuthPage = () => {
       } else {
         toast({
           title: 'Login realizado com sucesso!',
-          description: 'Bem-vindo de volta ao Meu APP!',
+          description: 'Bem-vindo de volta ao Meu Treino!',
         });
       }
     } catch (error) {
@@ -162,7 +162,7 @@ const AuthPage = () => {
             </div>
           </div>
           <CardTitle className="text-2xl font-bold bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 bg-clip-text text-transparent">
-            Meu APP
+            Meu Treino
           </CardTitle>
           <CardDescription>
             Entre ou cadastre-se para acessar seus treinos
