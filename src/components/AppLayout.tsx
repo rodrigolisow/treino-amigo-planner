@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Calendar, Dumbbell, BookOpen, Home, Menu, X, LogOut, User } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   DropdownMenu,
   DropdownMenuContent,

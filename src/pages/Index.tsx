@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/AppLayout';
 import HomePage from '@/components/HomePage';
 import AgendaPage from '@/components/AgendaPage';
