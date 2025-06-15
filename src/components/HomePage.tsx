@@ -13,7 +13,7 @@ const HomePage = ({ setActiveTab }: HomePageProps) => {
       {/* Welcome Section */}
       <div className="text-center space-y-4">
         <h1 className="text-4xl md:text-5xl font-poppins font-bold text-fitness-gray-800">
-          Bem-vindo ao <span className="bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-600 bg-clip-text text-transparent">Meu APP</span>
+          Bem-vindo ao <span className="bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-600 bg-clip-text text-transparent">Meu Treino</span>
         </h1>
         <p className="text-xl text-fitness-gray-600 max-w-2xl mx-auto">
           Organize seus treinos de academia de forma inteligente e acompanhe seu progresso
