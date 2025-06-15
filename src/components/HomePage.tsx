@@ -66,7 +66,7 @@ const HomePage = ({ setActiveTab }: HomePageProps) => {
             <Dumbbell className="w-6 h-6 text-fitness-blue-600" />
             <span>Próximo Treino</span>
             <Badge className="bg-fitness-orange-100 text-fitness-orange-700 hover:bg-fitness-orange-200">
-              15:30
+              Segunda, 15:30
             </Badge>
           </CardTitle>
         </CardHeader>
