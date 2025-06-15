@@ -9,6 +9,84 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      exercicios_biblioteca: {
+        Row: {
+          categoria: string
+          created_at: string
+          descricao: string
+          id: string
+          imagem_url: string | null
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          descricao: string
+          id?: string
+          imagem_url?: string | null
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          descricao?: string
+          id?: string
+          imagem_url?: string | null
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      exercicios_treino: {
+        Row: {
+          com_isometria: boolean | null
+          created_at: string
+          exercicio_id: string
+          id: string
+          peso: string | null
+          repeticoes: number
+          series: number
+          treino_id: string
+        }
+        Insert: {
+          com_isometria?: boolean | null
+          created_at?: string
+          exercicio_id: string
+          id?: string
+          peso?: string | null
+          repeticoes: number
+          series: number
+          treino_id: string
+        }
+        Update: {
+          com_isometria?: boolean | null
+          created_at?: string
+          exercicio_id?: string
+          id?: string
+          peso?: string | null
+          repeticoes?: number
+          series?: number
+          treino_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercicios_treino_exercicio_id_fkey"
+            columns: ["exercicio_id"]
+            isOneToOne: false
+            referencedRelation: "exercicios_biblioteca"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercicios_treino_treino_id_fkey"
+            columns: ["treino_id"]
+            isOneToOne: false
+            referencedRelation: "treinos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -34,6 +112,33 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      treinos: {
+        Row: {
+          created_at: string
+          data_agendada: string | null
+          id: string
+          nome: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_agendada?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data_agendada?: string | null
+          id?: string
+          nome?: string
           updated_at?: string
           user_id?: string
         }

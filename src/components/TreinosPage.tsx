@@ -1,318 +1,460 @@
-import { useState } from 'react';
-import { Plus, Edit3, Trash2, Copy, Calendar, Clock, Dumbbell } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { Dumbbell, Plus, Trash2, Search, Calendar } from 'lucide-react';
+
+interface Exercise {
+  id: string;
+  nome: string;
+  descricao: string;
+  categoria: string;
+  imagem_url?: string;
+}
+
+interface WorkoutExercise {
+  exercicio_id: string;
+  exercicio?: Exercise;
+  series: number;
+  repeticoes: number;
+  peso: string;
+  com_isometria: boolean;
+}
+
+interface Workout {
+  id?: string;
+  nome: string;
+  data_agendada?: string;
+  exercicios: WorkoutExercise[];
+}
 
 const TreinosPage = () => {
-  const [workoutPlans, setWorkoutPlans] = useState([
-    {
-      id: 1,
-      name: 'Peito e Tríceps',
-      category: 'Superior',
-      exercises: [
-        { name: 'Supino Reto', sets: 4, reps: 12, weight: 80, isometric: false },
-        { name: 'Supino Inclinado', sets: 3, reps: 10, weight: 70, isometric: false },
-        { name: 'Mergulho', sets: 3, reps: 15, weight: 0, isometric: true },
-        { name: 'Tríceps Testa', sets: 4, reps: 12, weight: 30, isometric: false },
-      ],
-      createdAt: '2024-06-10',
-    },
-    {
-      id: 2,
-      name: 'Costas e Bíceps',
-      category: 'Superior',
-      exercises: [
-        { name: 'Puxada Frontal', sets: 4, reps: 12, weight: 65, isometric: false },
-        { name: 'Remada Curvada', sets: 4, reps: 10, weight: 60, isometric: false },
-        { name: 'Rosca Direta', sets: 3, reps: 12, weight: 25, isometric: false },
-        { name: 'Rosca Martelo', sets: 3, reps: 12, weight: 20, isometric: true },
-      ],
-      createdAt: '2024-06-08',
-    },
-    {
-      id: 3,
-      name: 'Pernas - Anterior',
-      category: 'Inferior',
-      exercises: [
-        { name: 'Agachamento', sets: 4, reps: 15, weight: 100, isometric: false },
-        { name: 'Leg Press', sets: 4, reps: 20, weight: 200, isometric: false },
-        { name: 'Extensora', sets: 3, reps: 15, weight: 45, isometric: true },
-        { name: 'Afundo', sets: 3, reps: 12, weight: 40, isometric: false },
-      ],
-      createdAt: '2024-06-05',
-    },
-  ]);
-
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newWorkout, setNewWorkout] = useState({
-    name: '',
-    category: '',
-    exercises: [],
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [isCreating, setIsCreating] = useState(false);
+  const [myWorkouts, setMyWorkouts] = useState<any[]>([]);
+  
+  const [workout, setWorkout] = useState<Workout>({
+    nome: '',
+    data_agendada: '',
+    exercicios: []
   });
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'Superior':
-        return 'bg-fitness-blue-100 text-fitness-blue-700';
-      case 'Inferior':
-        return 'bg-fitness-orange-100 text-fitness-orange-700';
-      case 'Posterior':
-        return 'bg-fitness-gray-100 text-fitness-gray-700';
-      default:
-        return 'bg-fitness-gray-100 text-fitness-gray-700';
+  const categories = ['Peito', 'Costas', 'Pernas', 'Glúteo', 'Ombros', 'Braços', 'Core'];
+
+  useEffect(() => {
+    fetchExercises();
+    fetchMyWorkouts();
+  }, []);
+
+  useEffect(() => {
+    filterExercises();
+  }, [exercises, searchTerm, selectedCategory]);
+
+  const fetchExercises = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('exercicios_biblioteca')
+        .select('*')
+        .order('categoria', { ascending: true })
+        .order('nome', { ascending: true });
+
+      if (error) throw error;
+      setExercises(data || []);
+    } catch (error) {
+      toast({
+        title: 'Erro ao carregar exercícios',
+        description: 'Não foi possível carregar a biblioteca de exercícios.',
+        variant: 'destructive',
+      });
     }
   };
 
-  const duplicateWorkout = (workout: any) => {
-    const newWorkout = {
-      ...workout,
-      id: Date.now(),
-      name: `${workout.name} (Cópia)`,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    setWorkoutPlans([...workoutPlans, newWorkout]);
+  const fetchMyWorkouts = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('treinos')
+        .select(`
+          *,
+          exercicios_treino (
+            *,
+            exercicios_biblioteca (*)
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMyWorkouts(data || []);
+    } catch (error) {
+      toast({
+        title: 'Erro ao carregar treinos',
+        description: 'Não foi possível carregar seus treinos.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const deleteWorkout = (id: number) => {
-    setWorkoutPlans(workoutPlans.filter(workout => workout.id !== id));
+  const filterExercises = () => {
+    let filtered = exercises;
+
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(ex => ex.categoria === selectedCategory);
+    }
+
+    if (searchTerm) {
+      filtered = filtered.filter(ex => 
+        ex.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ex.descricao.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    setFilteredExercises(filtered);
+  };
+
+  const addExerciseToWorkout = (exercise: Exercise) => {
+    const newExercise: WorkoutExercise = {
+      exercicio_id: exercise.id,
+      exercicio: exercise,
+      series: 3,
+      repeticoes: 12,
+      peso: '',
+      com_isometria: false
+    };
+
+    setWorkout(prev => ({
+      ...prev,
+      exercicios: [...prev.exercicios, newExercise]
+    }));
+  };
+
+  const updateExerciseInWorkout = (index: number, field: keyof WorkoutExercise, value: any) => {
+    setWorkout(prev => ({
+      ...prev,
+      exercicios: prev.exercicios.map((ex, i) => 
+        i === index ? { ...ex, [field]: value } : ex
+      )
+    }));
+  };
+
+  const removeExerciseFromWorkout = (index: number) => {
+    setWorkout(prev => ({
+      ...prev,
+      exercicios: prev.exercicios.filter((_, i) => i !== index)
+    }));
+  };
+
+  const saveWorkout = async () => {
+    if (!user || !workout.nome || workout.exercicios.length === 0) {
+      toast({
+        title: 'Dados incompletos',
+        description: 'Preencha o nome do treino e adicione pelo menos um exercício.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+
+      // Save workout
+      const { data: workoutData, error: workoutError } = await supabase
+        .from('treinos')
+        .insert({
+          user_id: user.id,
+          nome: workout.nome,
+          data_agendada: workout.data_agendada || null
+        })
+        .select()
+        .single();
+
+      if (workoutError) throw workoutError;
+
+      // Save exercises
+      const exercisesToInsert = workout.exercicios.map(ex => ({
+        treino_id: workoutData.id,
+        exercicio_id: ex.exercicio_id,
+        series: ex.series,
+        repeticoes: ex.repeticoes,
+        peso: ex.peso,
+        com_isometria: ex.com_isometria
+      }));
+
+      const { error: exercisesError } = await supabase
+        .from('exercicios_treino')
+        .insert(exercisesToInsert);
+
+      if (exercisesError) throw exercisesError;
+
+      toast({
+        title: 'Treino criado!',
+        description: 'Seu treino foi salvo com sucesso.',
+      });
+
+      // Reset form
+      setWorkout({
+        nome: '',
+        data_agendada: '',
+        exercicios: []
+      });
+
+      fetchMyWorkouts();
+    } catch (error) {
+      toast({
+        title: 'Erro ao salvar treino',
+        description: 'Não foi possível salvar o treino. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
-        <div>
-          <h1 className="text-3xl font-poppins font-bold text-fitness-gray-800">Meus Treinos</h1>
-          <p className="text-fitness-gray-600">Crie e gerencie seus planos de treino</p>
-        </div>
-        
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 hover:from-fitness-blue-700 hover:to-fitness-orange-600 text-white">
-              <Plus className="w-5 h-5 mr-2" />
-              Novo Treino
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Criar Novo Treino</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
+      <div className="text-center">
+        <h1 className="text-3xl font-poppins font-bold text-fitness-gray-800 mb-2">
+          Meus Treinos
+        </h1>
+        <p className="text-fitness-gray-600">
+          Crie e organize seus treinos personalizados
+        </p>
+      </div>
+
+      <Tabs defaultValue="create" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="create">Criar Treino</TabsTrigger>
+          <TabsTrigger value="my-workouts">Meus Treinos</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="create" className="space-y-6">
+          {/* Workout Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Dumbbell className="w-5 h-5 text-fitness-blue-600" />
+                <span>Detalhes do Treino</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="workout-name">Nome do Treino</Label>
                 <Input
                   id="workout-name"
                   placeholder="Ex: Peito e Tríceps"
-                  value={newWorkout.name}
-                  onChange={(e) => setNewWorkout({ ...newWorkout, name: e.target.value })}
+                  value={workout.nome}
+                  onChange={(e) => setWorkout(prev => ({ ...prev, nome: e.target.value }))}
                 />
               </div>
               <div>
-                <Label htmlFor="workout-category">Categoria</Label>
-                <Select onValueChange={(value) => setNewWorkout({ ...newWorkout, category: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Superior">Superior</SelectItem>
-                    <SelectItem value="Inferior">Inferior</SelectItem>
-                    <SelectItem value="Posterior">Posterior</SelectItem>
-                    <SelectItem value="Combinado">Combinado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex space-x-2 pt-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  onClick={() => {
-                    // Logic to create workout would go here
-                    setIsCreateModalOpen(false);
-                  }}
-                  className="flex-1 bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500"
-                >
-                  Criar
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-fitness-blue-100 rounded-lg flex items-center justify-center">
-                <Dumbbell className="w-5 h-5 text-fitness-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-fitness-gray-600">Total de Treinos</p>
-                <p className="text-xl font-bold text-fitness-gray-800">{workoutPlans.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-fitness-orange-100 rounded-lg flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-fitness-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm text-fitness-gray-600">Esta Semana</p>
-                <p className="text-xl font-bold text-fitness-gray-800">4</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-fitness-gray-600">Tempo Médio</p>
-                <p className="text-xl font-bold text-fitness-gray-800">65min</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Edit3 className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-fitness-gray-600">Favoritos</p>
-                <p className="text-xl font-bold text-fitness-gray-800">2</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Workout Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {workoutPlans.map((workout) => (
-          <Card key={workout.id} className="border-0 shadow-lg bg-white/70 backdrop-blur-sm transition-all duration-200 hover:shadow-xl hover:scale-105">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <CardTitle className="text-lg font-semibold text-fitness-gray-800">
-                    {workout.name}
-                  </CardTitle>
-                  <Badge className={getCategoryColor(workout.category)}>
-                    {workout.category}
-                  </Badge>
-                </div>
-                <div className="flex space-x-1">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => duplicateWorkout(workout)}
-                    className="text-fitness-gray-600 hover:text-fitness-blue-600"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="text-fitness-gray-600 hover:text-fitness-orange-600"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => deleteWorkout(workout.id)}
-                    className="text-fitness-gray-600 hover:text-red-600"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-fitness-gray-700">
-                  Exercícios ({workout.exercises.length})
-                </p>
-                <div className="space-y-1">
-                  {workout.exercises.slice(0, 3).map((exercise, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <span className="text-fitness-gray-600">{exercise.name}</span>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-fitness-gray-500">
-                          {exercise.sets}x{exercise.reps}
-                        </span>
-                        {exercise.isometric && (
-                          <Badge className="bg-fitness-orange-100 text-fitness-orange-700 text-xs">
-                            ISO
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {workout.exercises.length > 3 && (
-                    <p className="text-xs text-fitness-gray-400 italic">
-                      +{workout.exercises.length - 3} exercícios
-                    </p>
-                  )}
-                </div>
-              </div>
-              
-              <div className="pt-2 border-t border-fitness-gray-200">
-                <div className="flex items-center justify-between text-xs text-fitness-gray-500 mb-3">
-                  <span>Criado em {new Date(workout.createdAt).toLocaleDateString('pt-BR')}</span>
-                  <span>~60-70 min</span>
-                </div>
-                <Button className="w-full bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 hover:from-fitness-blue-700 hover:to-fitness-orange-600 text-white">
-                  Agendar Treino
-                </Button>
+                <Label htmlFor="workout-date">Data (opcional)</Label>
+                <Input
+                  id="workout-date"
+                  type="date"
+                  value={workout.data_agendada}
+                  onChange={(e) => setWorkout(prev => ({ ...prev, data_agendada: e.target.value }))}
+                />
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {/* Empty State */}
-      {workoutPlans.length === 0 && (
-        <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-          <CardContent className="p-12 text-center">
-            <Dumbbell className="w-16 h-16 mx-auto mb-4 text-fitness-gray-400" />
-            <h3 className="text-xl font-semibold text-fitness-gray-800 mb-2">
-              Nenhum treino criado ainda
-            </h3>
-            <p className="text-fitness-gray-600 mb-6">
-              Crie seu primeiro treino para começar a organizar sua rotina na academia
-            </p>
-            <Button 
-              onClick={() => setIsCreateModalOpen(true)}
-              className="bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 hover:from-fitness-blue-700 hover:to-fitness-orange-600 text-white"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Criar Primeiro Treino
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          {/* Selected Exercises */}
+          {workout.exercicios.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Exercícios Selecionados ({workout.exercicios.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {workout.exercicios.map((ex, index) => (
+                  <div key={index} className="bg-fitness-gray-50 p-4 rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-fitness-gray-800">{ex.exercicio?.nome}</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeExerciseFromWorkout(index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Séries</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={ex.series}
+                          onChange={(e) => updateExerciseInWorkout(index, 'series', parseInt(e.target.value))}
+                        />
+                      </div>
+                      <div>
+                        <Label>Repetições</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={ex.repeticoes}
+                          onChange={(e) => updateExerciseInWorkout(index, 'repeticoes', parseInt(e.target.value))}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label>Peso (opcional)</Label>
+                      <Input
+                        placeholder="Ex: 10kg, 15kg..."
+                        value={ex.peso}
+                        onChange={(e) => updateExerciseInWorkout(index, 'peso', e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={ex.com_isometria}
+                        onCheckedChange={(checked) => updateExerciseInWorkout(index, 'com_isometria', checked)}
+                      />
+                      <Label>Adicionar Isometria</Label>
+                    </div>
+                  </div>
+                ))}
+                
+                <Button
+                  onClick={saveWorkout}
+                  disabled={isCreating}
+                  className="w-full bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 hover:from-fitness-blue-700 hover:to-fitness-orange-600"
+                >
+                  {isCreating ? 'Salvando...' : 'Salvar Treino'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Exercise Library */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Biblioteca de Exercícios</CardTitle>
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar exercícios..."
+                    className="pl-9"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as categorias</SelectItem>
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3">
+                {filteredExercises.map((exercise) => (
+                  <div
+                    key={exercise.id}
+                    className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-fitness-gray-50 transition-colors"
+                  >
+                    {exercise.imagem_url && (
+                      <img
+                        src={exercise.imagem_url}
+                        alt={exercise.nome}
+                        className="w-12 h-12 rounded-lg object-cover"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-fitness-gray-800">{exercise.nome}</h4>
+                      <p className="text-sm text-fitness-gray-600">{exercise.descricao}</p>
+                      <Badge variant="secondary" className="mt-1">
+                        {exercise.categoria}
+                      </Badge>
+                    </div>
+                    <Button
+                      onClick={() => addExerciseToWorkout(exercise)}
+                      size="sm"
+                      className="bg-fitness-blue-600 hover:bg-fitness-blue-700"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="my-workouts">
+          <div className="space-y-4">
+            {myWorkouts.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <Dumbbell className="w-12 h-12 mx-auto text-fitness-gray-400 mb-4" />
+                  <p className="text-fitness-gray-600">Você ainda não criou nenhum treino.</p>
+                  <p className="text-sm text-fitness-gray-500">Use a aba "Criar Treino" para começar!</p>
+                </CardContent>
+              </Card>
+            ) : (
+              myWorkouts.map((workout) => (
+                <Card key={workout.id}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>{workout.nome}</span>
+                      {workout.data_agendada && (
+                        <Badge variant="outline" className="flex items-center space-x-1">
+                          <Calendar className="w-3 h-3" />
+                          <span>{new Date(workout.data_agendada).toLocaleDateString('pt-BR')}</span>
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {workout.exercicios_treino?.map((ex: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-fitness-gray-50 rounded">
+                          <div>
+                            <span className="font-medium">{ex.exercicios_biblioteca?.nome}</span>
+                            {ex.com_isometria && (
+                              <Badge variant="secondary" className="ml-2 text-xs">Isometria</Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-fitness-gray-600">
+                            {ex.series}x{ex.repeticoes} {ex.peso && `- ${ex.peso}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
