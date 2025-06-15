@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,8 +12,25 @@ import { Dumbbell, Mail, Lock, User, Github } from 'lucide-react';
 
 const AuthPage = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp, signIn, signInWithGoogle, signInWithGithub } = useAuth();
+  const { user, loading, signUp, signIn, signInWithGoogle, signInWithGithub } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-fitness-blue-50 to-fitness-orange-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-fitness-blue-500"></div>
+      </div>
+    );
+  }
 
   const [loginForm, setLoginForm] = useState({
     email: '',
