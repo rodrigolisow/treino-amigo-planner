@@ -122,24 +122,30 @@ export type Database = {
       }
       treinos: {
         Row: {
+          concluido: boolean | null
           created_at: string
           data_agendada: string | null
+          data_conclusao: string | null
           id: string
           nome: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          concluido?: boolean | null
           created_at?: string
           data_agendada?: string | null
+          data_conclusao?: string | null
           id?: string
           nome: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          concluido?: boolean | null
           created_at?: string
           data_agendada?: string | null
+          data_conclusao?: string | null
           id?: string
           nome?: string
           updated_at?: string

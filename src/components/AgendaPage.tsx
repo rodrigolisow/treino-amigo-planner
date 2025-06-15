@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Weight, Dumbbell, ArrowLeft } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Weight, Dumbbell, ArrowLeft, Check, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,8 @@ interface Workout {
   nome: string;
   data_agendada: string;
   created_at: string;
+  concluido: boolean;
+  data_conclusao: string | null;
   exercicios_treino: Array<{
     id: string;
     series: number;
@@ -71,6 +73,47 @@ const AgendaPage = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const markWorkoutAsComplete = async (workoutId: string) => {
+    try {
+      const { error } = await supabase
+        .from('treinos')
+        .update({ 
+          concluido: true, 
+          data_conclusao: new Date().toISOString() 
+        })
+        .eq('id', workoutId);
+
+      if (error) throw error;
+
+      // Update local state
+      setWorkouts(prev => prev.map(workout => 
+        workout.id === workoutId 
+          ? { ...workout, concluido: true, data_conclusao: new Date().toISOString() }
+          : workout
+      ));
+
+      // Update selected workout if it's the one being marked
+      if (selectedWorkout?.id === workoutId) {
+        setSelectedWorkout(prev => prev ? {
+          ...prev,
+          concluido: true,
+          data_conclusao: new Date().toISOString()
+        } : null);
+      }
+
+      toast({
+        title: 'Treino concluído!',
+        description: 'Parabéns por completar seu treino!',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro ao marcar treino',
+        description: 'Não foi possível marcar o treino como concluído.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -216,9 +259,25 @@ const AgendaPage = () => {
             ))}
             
             <div className="pt-4">
-              <Button className="w-full bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 hover:from-fitness-blue-700 hover:to-fitness-orange-600 text-white">
-                Iniciar Treino
-              </Button>
+              {selectedWorkout.concluido ? (
+                <div className="flex items-center justify-center space-x-2 py-3 bg-green-50 rounded-lg border border-green-200">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-green-700 font-medium">Treino Concluído</span>
+                  {selectedWorkout.data_conclusao && (
+                    <span className="text-green-600 text-sm">
+                      em {new Date(selectedWorkout.data_conclusao).toLocaleDateString('pt-BR')}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <Button 
+                  className="w-full bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 hover:from-fitness-blue-700 hover:to-fitness-orange-600 text-white"
+                  onClick={() => markWorkoutAsComplete(selectedWorkout.id)}
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Marcar como Concluído
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -295,23 +354,26 @@ const AgendaPage = () => {
               </CardContent>
             </Card>
           ) : (
-            getWorkoutsForDate(currentDate.toISOString().split('T')[0]).map((workout) => (
-              <Card key={workout.id} className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-fitness-gray-800">
-                    {workout.nome}
-                  </CardTitle>
-                  <div className="flex items-center space-x-4 text-sm text-fitness-gray-600">
-                    <div className="flex items-center space-x-1">
-                      <Clock className="w-4 h-4" />
-                      <span>Agendado</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Dumbbell className="w-4 h-4" />
-                      <span>{workout.exercicios_treino?.length || 0} exercícios</span>
-                    </div>
-                  </div>
-                </CardHeader>
+             getWorkoutsForDate(currentDate.toISOString().split('T')[0]).map((workout) => (
+               <Card key={workout.id} className={`border-0 shadow-lg bg-white/70 backdrop-blur-sm ${workout.concluido ? 'ring-2 ring-green-200' : ''}`}>
+                 <CardHeader>
+                   <CardTitle className="flex items-center justify-between">
+                     <span className="text-xl font-semibold text-fitness-gray-800">{workout.nome}</span>
+                     {workout.concluido && (
+                       <CheckCircle className="w-5 h-5 text-green-600" />
+                     )}
+                   </CardTitle>
+                   <div className="flex items-center space-x-4 text-sm text-fitness-gray-600">
+                     <div className="flex items-center space-x-1">
+                       <Clock className="w-4 h-4" />
+                       <span>{workout.concluido ? 'Concluído' : 'Agendado'}</span>
+                     </div>
+                     <div className="flex items-center space-x-1">
+                       <Dumbbell className="w-4 h-4" />
+                       <span>{workout.exercicios_treino?.length || 0} exercícios</span>
+                     </div>
+                   </div>
+                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {workout.exercicios_treino?.map((exercise, index) => (
@@ -377,13 +439,24 @@ const AgendaPage = () => {
                    {dayWorkouts.map((workout) => (
                      <div 
                        key={workout.id}
-                       className="p-3 rounded-lg border-l-4 bg-fitness-orange-50 border-fitness-orange-400 cursor-pointer hover:bg-fitness-orange-100 transition-colors"
+                       className={`p-3 rounded-lg border-l-4 cursor-pointer transition-colors relative ${
+                         workout.concluido 
+                           ? 'bg-green-50 border-green-400 hover:bg-green-100' 
+                           : 'bg-fitness-orange-50 border-fitness-orange-400 hover:bg-fitness-orange-100'
+                       }`}
                        onClick={() => setSelectedWorkout(workout)}
                      >
-                       <p className="text-sm font-semibold text-fitness-gray-800">{workout.nome}</p>
-                       <p className="text-xs text-fitness-gray-600">
-                         {workout.exercicios_treino?.length || 0} exercícios
-                       </p>
+                       <div className="flex items-center justify-between">
+                         <div>
+                           <p className="text-sm font-semibold text-fitness-gray-800">{workout.nome}</p>
+                           <p className="text-xs text-fitness-gray-600">
+                             {workout.exercicios_treino?.length || 0} exercícios
+                           </p>
+                         </div>
+                         {workout.concluido && (
+                           <CheckCircle className="w-4 h-4 text-green-600" />
+                         )}
+                       </div>
                      </div>
                    ))}
                   {dayWorkouts.length === 0 && (
@@ -429,12 +502,17 @@ const AgendaPage = () => {
                       setViewMode('day');
                     }}
                   >
-                    <div className="text-sm">{day.getDate()}</div>
-                    {dayWorkouts.length > 0 && isCurrentMonth && (
-                      <div className="flex justify-center mt-1">
-                        <div className="w-2 h-2 bg-fitness-orange-500 rounded-full" />
-                      </div>
-                    )}
+                     <div className="text-sm">{day.getDate()}</div>
+                     {dayWorkouts.length > 0 && isCurrentMonth && (
+                       <div className="flex justify-center items-center space-x-1 mt-1">
+                         {dayWorkouts.some(w => w.concluido) && (
+                           <div className="w-2 h-2 bg-green-500 rounded-full" />
+                         )}
+                         {dayWorkouts.some(w => !w.concluido) && (
+                           <div className="w-2 h-2 bg-fitness-orange-500 rounded-full" />
+                         )}
+                       </div>
+                     )}
                   </div>
                 );
               })}
