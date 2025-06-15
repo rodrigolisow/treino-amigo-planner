@@ -6,6 +6,7 @@ import HomePage from '@/components/HomePage';
 import AgendaPage from '@/components/AgendaPage';
 import TreinosPage from '@/components/TreinosPage';
 import BibliotecaPage from '@/components/BibliotecaPage';
+import ProfilePage from '@/components/ProfilePage';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('home');
@@ -33,6 +34,8 @@ const Index = () => {
         return <TreinosPage />;
       case 'biblioteca':
         return <BibliotecaPage />;
+      case 'profile':
+        return <ProfilePage />;
       default:
         return <HomePage setActiveTab={setActiveTab} />;
     }
