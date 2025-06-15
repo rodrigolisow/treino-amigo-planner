@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Weight, Dumbbell } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Weight, Dumbbell, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,7 @@ const AgendaPage = () => {
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -141,6 +142,90 @@ const AgendaPage = () => {
     );
   }
 
+  // Workout detail view
+  if (selectedWorkout) {
+    return (
+      <div className="space-y-6">
+        {/* Header with back button */}
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedWorkout(null)}
+            className="flex items-center space-x-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Voltar</span>
+          </Button>
+          <div>
+            <h1 className="text-3xl font-poppins font-bold text-fitness-gray-800">{selectedWorkout.nome}</h1>
+            <p className="text-fitness-gray-600">
+              Agendado para {new Date(selectedWorkout.data_agendada).toLocaleDateString('pt-BR', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </p>
+          </div>
+        </div>
+
+        {/* Workout details */}
+        <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="text-xl text-fitness-gray-800">Exercícios do Treino</span>
+              <Badge className="bg-fitness-blue-100 text-fitness-blue-700">
+                {selectedWorkout.exercicios_treino?.length || 0} exercícios
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {selectedWorkout.exercicios_treino?.map((exercise, index) => (
+              <div key={index} className="bg-fitness-gray-50 p-4 rounded-lg border-l-4 border-fitness-orange-400">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold text-fitness-gray-800 text-lg">{exercise.exercicios_biblioteca?.nome}</h3>
+                  <Badge variant="secondary" className="bg-fitness-gray-200 text-fitness-gray-700">
+                    {exercise.exercicios_biblioteca?.categoria}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <Weight className="w-4 h-4 text-fitness-gray-600" />
+                    <span className="text-fitness-gray-600">Séries: <strong>{exercise.series}</strong></span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Dumbbell className="w-4 h-4 text-fitness-gray-600" />
+                    <span className="text-fitness-gray-600">Repetições: <strong>{exercise.repeticoes}</strong></span>
+                  </div>
+                  {exercise.peso && (
+                    <div className="flex items-center space-x-2">
+                      <Weight className="w-4 h-4 text-fitness-gray-600" />
+                      <span className="text-fitness-gray-600">Peso: <strong>{exercise.peso}</strong></span>
+                    </div>
+                  )}
+                  {exercise.com_isometria && (
+                    <div className="flex items-center space-x-2">
+                      <Badge className="bg-fitness-orange-100 text-fitness-orange-700 text-xs">
+                        Isometria
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            <div className="pt-4">
+              <Button className="w-full bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 hover:from-fitness-blue-700 hover:to-fitness-orange-600 text-white">
+                Iniciar Treino
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -246,9 +331,12 @@ const AgendaPage = () => {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-4">
-                    <Button className="w-full bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 hover:from-fitness-blue-700 hover:to-fitness-orange-600 text-white">
-                      Iniciar Treino
+                  <div className="mt-4 space-y-2">
+                    <Button 
+                      className="w-full bg-gradient-to-r from-fitness-blue-600 to-fitness-orange-500 hover:from-fitness-blue-700 hover:to-fitness-orange-600 text-white"
+                      onClick={() => setSelectedWorkout(workout)}
+                    >
+                      Ver Detalhes
                     </Button>
                   </div>
                 </CardContent>
@@ -286,17 +374,18 @@ const AgendaPage = () => {
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {dayWorkouts.map((workout) => (
-                    <div 
-                      key={workout.id}
-                      className="p-3 rounded-lg border-l-4 bg-fitness-orange-50 border-fitness-orange-400"
-                    >
-                      <p className="text-sm font-semibold text-fitness-gray-800">{workout.nome}</p>
-                      <p className="text-xs text-fitness-gray-600">
-                        {workout.exercicios_treino?.length || 0} exercícios
-                      </p>
-                    </div>
-                  ))}
+                   {dayWorkouts.map((workout) => (
+                     <div 
+                       key={workout.id}
+                       className="p-3 rounded-lg border-l-4 bg-fitness-orange-50 border-fitness-orange-400 cursor-pointer hover:bg-fitness-orange-100 transition-colors"
+                       onClick={() => setSelectedWorkout(workout)}
+                     >
+                       <p className="text-sm font-semibold text-fitness-gray-800">{workout.nome}</p>
+                       <p className="text-xs text-fitness-gray-600">
+                         {workout.exercicios_treino?.length || 0} exercícios
+                       </p>
+                     </div>
+                   ))}
                   {dayWorkouts.length === 0 && (
                     <p className="text-xs text-fitness-gray-400 italic">Sem treinos</p>
                   )}
